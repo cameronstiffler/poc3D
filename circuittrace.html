@@ -1,0 +1,1643 @@
+<!DOCTYPE html>
+
+<html lang="en" ng-app="circuitViewApp">
+	<head>
+		<title>Circuit Trace Example</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		
+		<link rel="stylesheet" type="text/css" href="styles.css">
+
+    	<script src="toolbar.js?sdfkh"></script>
+	</head>
+
+	<body class="prime" ng-controller="viewCtrl"  style="min-width: 0px; background-color:#FFFFFF!important">
+		<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular.min.js"></script>
+		<script src="js/lib/three.min.js"></script>
+		<script src="js/controls/OrbitControls.js"></script>
+		<script src="js/Detector.js"></script>
+		<script src="js/loaders/MTLLoader.js"></script>
+		<script src="js/loaders/OBJMTLLoader.js"></script>
+		<script src="js/loaders/OBJLoader.js"></script>
+		<script src="js/loaders/JSONLoader.js"></script>
+		<script src="fonts/helvetiker_regular.typeface.js"></script>
+		<script src="lib/tween/src/Tween.js"></script>
+		
+		<script>
+		//Angular Code
+		console.log('-');
+		var circuitViewApp = angular.module('circuitViewApp',[]);
+		circuitViewApp.controller('viewCtrl',['$scope','$http', function (scope,http){
+			
+
+
+			var lrClrs = ["#b06078","#616296","#7e5a92","#5a7090","#7e5a92","#518989","#f08eaf","#6d5d94","#dee896","#86d1d","#f06287","#6983bd","#e866a6","#4ba1d3","#9d79b6","#a7d5a1","#f9b385","#8c95c8","#88c76c","#589f9c"];
+			var cLrSubSetColorIndex = 0;
+			var cLrGroup;
+			var lastLayerGroup = "_none_";
+			var lrClrSetIndex = -1;
+			var lrClrStep = 8;
+			
+			var objects = [];
+			var ports = [];
+			var lines = [];
+			var containers = [];
+			var slots = [];
+			var nodes = [];
+			var layers = [];
+			var links = [];
+			var labels = [];
+			//var gd;
+			var go = {
+				"nodes": [],
+				"links": [],
+				"layers":[]
+			}
+			
+			var layerStep = 50;
+			var yStep = 25;
+
+			var lrY = layerStep * -1;
+			var layerAdditionalSpace = 0;
+			var visibleLayers = ["2","3","4","5","6","7"];
+			var camera, scene, renderer, plane, view360, controls, text, mesh1, mesh2, mesh3, projector, registry, cLr, cNd, _lr, _nd, _pt, container, loader, mouse, sphere;
+			
+			function hideLayerById(id) {
+				//find everything on a layer and turn it off
+				//reference to everything must be placed in the layer data object  1
+				//iterate through items in layer and hide/show
+				//turn off lines associated with hidden objects
+				//turn off links associated with hidden objects
+				//add virtual link where layer was
+				
+			}
+			
+			
+			
+			////////////////////////// BEGIN CONSTRUCT GRAPH ////////////////////////////
+			
+			
+			function buildGraph() {
+				console.log("building graph");
+				// set graph title label
+				// create layer
+				var planeGeom =  new THREE.CubeGeometry(parseInt(gd.height), 0, parseInt(gd.width));
+				var backGeom =  new THREE.CubeGeometry(parseInt(gd.height), 0, layerStep+4);
+				console.log("layers array length " + gd.layers.length);
+				for (var i = 0; i < gd.layers.length; i++) { 
+					//////// LAYER /////////
+					_lr = gd.layers[i];
+					if (arrayContains(_lr.id, visibleLayers)) {
+					console.log("building layer " + _lr.label + " -----------------------------------------------------------");
+					var lrClr = formatColorHex(getLrClr(_lr.group));
+					go["layer" + _lr.id] = new Object();
+					var material = new THREE.MeshBasicMaterial( { color: parseInt(_lr.color), transparent: true, opacity: 1.0 } );
+					var materialLayer = new THREE.Mesh( planeGeom, material );
+					//var backLayer = new THREE.Mesh( backGeom, material );
+					lrY = lrY + layerStep;
+					var cLrY = lrY;
+					var lrH = getLayerHeight(_lr);
+					materialLayer.position.set(0, lrY, 0);
+					materialLayer.scale.set( 10, 10, 10 );
+
+					if (i > -1) {
+						//scene.add( materialLayer ); 
+					}
+					
+					go.layers[i] = cLr = {
+						"id" : _lr.id,
+						"object" : materialLayer,
+						"height":lrY,
+						"group" : _lr.layergroup,
+						"nodes" : [],
+						"ports" : [],
+						"lines" : [],
+						"links" : [],
+						"slots" : []
+					};
+						
+					go.layers[i].object = materialLayer;
+					var lineCount = 0;
+					if('label' in _lr) {
+						getLabel(_lr.label, -330, lrY, 450, gd.portcolor,13,0,0,0);
+					}
+					
+					if('elements' in _lr) {
+					
+					//////// NODE LEVEL ELEMENTS /////////
+					for (var n = 0; n < _lr.elements.length; n++) {
+						console.log("creating "+_lr.label+" element type "+_lr.elements[n].type);
+						_nd = _lr.elements[n];
+						if (_nd.type == "model") {
+							
+							//////// NODE /////////
+							cNd = getNode(
+								_nd.id,
+								_nd.label);
+								//cNd.obj = getModel(_nd.name, parseInt(_nd.x),lrY , parseInt(_nd.y), parseInt(_nd.color),1);
+							cNd.obj = getCylinder(
+								_nd.name, 
+								parseInt(_nd.x), 
+								lrY, 
+								parseInt(_nd.y), 
+								lrClr, 1, lrH);
+							if('icon' in _nd) {  
+							
+								//////// DEVICE ICON /////////
+								var currentIcon = getIcon(cNd.obj,_nd.icon);
+							}
+							go.layers[i].nodes.push(cNd);
+							//getSpriteLabel(_nd.label,(parseInt(_nd.x)+1), lrY+20, parseInt(_nd.y),60,parseInt(_nd.color));
+							if (_lr.id == "600") { 
+								//getLabel(_nd.label, parseInt(_nd.x-50), lrY-35, parseInt(_nd.y)+40,parseInt(_nd.color),18,0,0,0);
+								getOlb(
+									_nd.label,
+									cNd.obj,
+									0x666666,10,12,"center","top");
+							}
+						} else if (_nd.type == "line") {  
+							
+							//////// NODE LINK /////////
+							getLine(
+								_nd.id,
+								_lr.id, 
+								lineCount, 
+								_nd.label, 
+								lrY, 
+								_nd.start, 
+								_nd.end, 
+								_nd.style, 
+								parseInt(_nd.color));
+							lineCount++;
+						} else if (_nd.type == "box") { 
+							
+							//////// TEXTURE MAPPED BOX/////////
+							getBox(
+								_nd.height, 
+								_nd.width, 
+								_nd.depth, 
+								parseInt(_nd.x), 
+								lrY, 
+								parseInt(_nd.y), 
+								_nd.texture, 
+								parseInt(_nd.color));
+							getSpriteLabel(
+								_nd.label,
+								parseInt(_nd.x)+1, 
+								lrY+5+parseInt(_nd.width), 
+								parseInt(_nd.y),
+								60,
+								parseInt(_nd.color));
+							//getLabel(_nd.label, parseInt(_nd.x-50), lrY+1, parseInt(_nd.y)+70,parseInt(_nd.color),26,-1.55,0,0);
+						}
+
+						if('elements' in _nd) {  
+							
+							//////// PORT LEVEL ELEMENTS /////////
+							for (var j = 0; j < _nd.elements.length; j++) {
+								_pt = _nd.elements[j];
+								var cLn;
+								var cLk; 
+								
+								if (_pt.type == "line") { 
+									
+									//////// PORT LINE /////////
+									cLn = getSubLine(
+										_pt.id, //subElement
+										_nd.id, //element
+										_lr.id, //layer
+										lineCount, //count
+										_pt.label, //label
+										lrY + 8, //y
+										_pt.start, //start
+										_pt.end, //end
+										_pt.style, //style
+										parseInt(gd.linecolor),
+										_pt.badge //color
+									);
+									if('label' in _pt) { 
+										getOlb(
+											_pt.label, 
+											cLn, 
+											gd.linelabelcolor, 
+											5, 1,"center","top",0xFFFFFF); 
+									}
+									lineCount++;
+								} else if (_pt.type == "link") { 
+									
+									//////// PORT LINK /////////
+									var cLk = getLink(
+										_pt.id, 
+										_pt.label, 
+										go.layers[i],
+										_pt.start, 
+										_pt.end,
+										_pt.startloss, 
+										_pt.endloss,
+										_pt.badge,
+										_pt.style);
+								} else if (_pt.type == "port") { 
+									
+									//////// PORT //////////
+									var cPt = getSphere(
+										7,20,20, 
+										parseInt(_pt.x), 
+										lrY+11, 
+										parseInt(_pt.y), 
+										parseInt(_pt.color),
+										1,
+										_pt.id);
+										cPt.data = {
+											node : cNd,
+											layer : cLr,
+											id : _pt.id
+										}
+										go.layers[i].ports.push(cPt);
+									//getLabel(_pt.label, parseInt(_pt.x), lrY+22, parseInt(_pt.y),parseInt(_pt.color),6,0,0,0,"center");
+									getOlb(
+										_pt.label,
+										cPt,
+										gd.portlabelcolor,
+										4,8, "center", "bottom",0xFFFFFF);
+									getOlb(
+										"Tx "+_pt.tx, 
+										cPt, 
+										0xFFFFFF, 
+										4,16, "center", "bottom", 
+										gd.powercolor);
+									getOlb(
+										"Rx "+_pt.rx, 
+										cPt, 
+										0xFFFFFF, 
+										4,24, "center", "bottom", 
+										gd.powercolor);
+									if('badge' in _pt) {
+										cPt.badge = getBadge(
+											_lr.id, 
+											_nd.id, 
+											_pt.id, 
+											_pt.badge);
+									}
+									//Add "slot":"slotid" attribute to port jsons to wrap a container around them
+									if('slot' in _pt) {
+										addPortToSlot(
+											cPt, 
+											getSlot(_pt.slot, 
+											cNd));
+									}
+								}
+							}
+						}
+					}}
+					renderLinks(go.layers[i]);//assumes its okay to change layer elevation after this point
+				}}
+				//renderSlots();//given recent changes involving unique port Ids, this will need to be fixed
+				renderer.render( scene, camera );
+				animate();
+			}
+			
+
+			
+			////////////////////////// END CONSTRUCT GRAPH ////////////////////////////			
+
+			//////TOOL BAR FUNCTIONS///////
+			function faultChange(event) {
+				alert(event.data);
+			}
+			
+			//////DYNAMIC LAYER COLOR//////
+			function getLrClr(group) {
+				cLrGroup = group;
+				if (cLrGroup != lastLayerGroup) {
+					lrClrSetIndex++;
+					cLrSubSetColorIndex = 5;
+				} else {
+					cLrSubSetColorIndex--;
+				}
+				lastLayerGroup = cLrGroup;
+				
+				return shadeColor2(lrClrs[lrClrSetIndex],lrClrStep*cLrSubSetColorIndex/100+.4);
+			}
+			
+			function shadeColor1(color, percent) {  
+    			var num = parseInt(color,16),
+    			amt = Math.round(2.55 * percent),
+   				R = (num >> 16) + amt,
+    			G = (num >> 8 & 0x00FF) + amt,
+    			B = (num & 0x0000FF) + amt;
+    			console.log("Returning layer color "+(0x1000000 + (R<255?R<1?0:R:255)*0x10000 + (G<255?G<1?0:G:255)*0x100 + (B<255?B<1?0:B:255)).toString(16).slice(1));
+    			return (0x1000000 + (R<255?R<1?0:R:255)*0x10000 + (G<255?G<1?0:G:255)*0x100 + (B<255?B<1?0:B:255)).toString(16).slice(1);
+			}
+			
+			function shadeColor2(color, percent) {   
+    			var f=parseInt(color.slice(1),16),t=percent<0?0:255,p=percent<0?percent*-1:percent,R=f>>16,G=f>>8&0x00FF,B=f&0x0000FF;
+    			console.log("Returning layer color "+"#"+(0x1000000+(Math.round((t-R)*p)+R)*0x10000+(Math.round((t-G)*p)+G)*0x100+(Math.round((t-B)*p)+B)).toString(16).slice(1));
+    			return "#"+(0x1000000+(Math.round((t-R)*p)+R)*0x10000+(Math.round((t-G)*p)+G)*0x100+(Math.round((t-B)*p)+B)).toString(16).slice(1);
+			}
+			
+			function formatColorHex(hex) {
+				return parseInt("0"+ hex.toString().replace('#','x'));
+			}
+
+			///////LINKS BEGIN///////
+			function renderLinks(layerObj) {
+				//re-order links from shortest to longest
+				layerObj.links = queueLinks(layerObj.links);
+				
+				//for each link in each layer draw link
+				for (var s = 0; s < layerObj.links.length; s++) {
+					getLinkLine( 
+						layerObj.id, 
+						layerObj.links[s].port1, 
+						layerObj.links[s].port2, 
+						layerObj.links[s].label, 
+						layerObj.links[s].id, 
+						gd.linkcolor, 
+						layerObj.links[s].startloss, 
+						layerObj.links[s].endloss, 
+						layerObj.links[s].badge, 
+						layerObj.links[s].style,
+						s);
+					
+					//need to check for overlap before bumping links up to the next level x1-x2 outside of every other x1-x2 where y = y
+					if (s>0) {lrY = lrY + yStep; }
+				}
+			}
+
+			function queueLinks(links) {
+				console.log("queuing links: "+links.toString());
+				var queuedLinks = [];
+				while (links.length > 0) {
+					var shortestLink;
+					var shortestLinkDistance = 1000000000;
+					var shortestLinkIndex;
+					for (var l = 0; l < links.length; l++) {
+						
+						//Get Port Objects
+						var startLocationObjTemp = getSubElo(links[l].layer.id, links[l].port1);
+						var endLocationObjTemp = getSubElo(links[l].layer.id, links[l].port2);
+						var startLocationObj;
+						var endLocationObj;
+						
+						//Make sure first port object is on left
+						if(startLocationObjTemp.x < endLocationObjTemp.x) {
+							startLocationObj = startLocationObjTemp;
+							endLocationObj = endLocationObjTemp;
+						} else {
+							startLocationObj = endLocationObjTemp;
+							endLocationObj = startLocationObjTemp;
+						}
+						
+						//Find distance between etc
+						var distance = endLocationObj.x - startLocationObj.x;
+						if (distance < shortestLinkDistance) {
+							shortestLinkDistance = distance;
+							shortestLink = links[l];
+							shortestLinkIndex = l;
+						}
+					}
+					//shortest link found. Move it out of array into a new one.
+					queuedLinks.push(shortestLink);
+					links.splice(shortestLinkIndex,1);
+					console.log("links array:"+links.toString()+"  queued array:"+queuedLinks.toString());
+				}
+				console.log("returning queued array:" + queuedLinks.toString());
+				return queuedLinks;
+			}
+			
+			function getLayerHeight(layerData) {  // Count the number of links on the layer + base height
+				var lrH = layerStep;
+				var linkCount = 0;
+				if('elements' in layerData) {
+					for (var n = 0; n < layerData.elements.length; n++) {
+						if('elements' in layerData.elements[n]) {
+							for (var j = 0; j < layerData.elements[n].elements.length; j++) {
+								if ((layerData.elements[n].elements[j].type == "link")) {
+									if (linkCount > 0) { lrH += yStep; }
+									linkCount ++;
+								}
+							}
+						}
+					}
+				}
+				return lrH;
+			}
+			
+			function addPortToLink(portObj,linkObj) {
+				linkObj.ports.push(portObj);
+			}
+							
+			function getLink(id,label,layerObj, port1, port2, startLoss, endLoss, badge, style) { //Check to see if link exists. If it does return it. If it doesn't then create it and return it.
+				for (var s = 0; s < go.links.length; s++) {
+					if (go.links[s].id == id) {
+						return go.links[s];
+					}
+				}
+				var link = {
+					"id" : id,
+					"label" : label,
+					"style" : style,
+					"layer" : layerObj,
+					"ports" : [],
+					"port1" : port1,
+					"port2" : port2,
+					"startloss" : startLoss,
+					"endloss" : endLoss,
+					"badge" : badge
+				};
+				console.log("creating link: "+link.toString());
+				addPortToLink(port1, link);//add to an array but may not need this
+				addPortToLink(port2, link);//add to an array but may not need this
+				//go.links.push(link);//say this to add link visual objects to
+				layerObj.links.push(link);// its going to use the layer object to render from
+				console.log("adding link to layer links: "+layerObj.links.toString());
+				return link;
+			}
+			
+			//////////////LINKS END/////////////////
+			
+			function renderSlots() {
+				//for each slot in each node draw container
+				for (var n = 0; n < go.nodes.length; n++) {
+					for (var s = 0; s < go.nodes[n].slots.length; s++) {
+						getContainer(go.nodes[n].slots[s].ports,0xBBBBBB);
+					}
+				}
+			}
+
+			function addPortToSlot(portObj,slotObj) {
+				slotObj.ports.push(portObj);
+			}
+			
+			function getSlot(slotName,nodeObj) { //Check to see if slot exists. If it does return it. If it doesn't then create it and return it.
+				for (var s = 0; s < nodeObj.slots.length; s++) {
+					if (nodeObj.slots[s].name == slotName) { 
+						return nodeObj.slots[s];
+					}
+				}
+				var slot = {
+					"name" : slotName,
+					"parent" : nodeObj,
+					"ports" : []
+				};
+				nodeObj.slots.push(slot);
+				return slot;
+			}
+			
+			function hidePortsAndAssociatedLines() {}
+			
+			function getLayerIdByName(name) {
+				for (var a = 0; a < go.layers.length; a++) {
+					if (go.layers[a].name =="name") { return go.layers[a].id; }
+				}
+			}
+			
+			function getLayerIndexById(id) {
+				console.log("finding layer by id:"+id);
+				for (var a = 0; a < go.layers.length; a++) {
+					console.log("is:" +go.layers[a].id+" "+id+"?");
+					if (go.layers[a].id == id) { return a; }
+				}
+			}
+			
+			function hideLayerById(id) {
+				for (var j = 0; j < go.layers[id].ports.length; j++) {
+					go.layers[id].ports[j].visible = false;
+					//go.layers[id].ports[j].badge.visible = false;
+				}
+				for (var j = 0; j < go.layers[id].nodes.length; j++) {
+					go.layers[id].nodes[j].visible = false;
+				}
+				for (var j = 0; j < go.layers[id].lines.length; j++) {
+					go.layers[id].lines[j].visible = false;
+					//go.layers[id].lines[j].badge.visible = false;
+				}
+				//remove all slots and re-render them
+			}
+			
+			function hideLayerByName(name) {
+				hideLayerById(getLayerIdByName(name));
+			}
+			
+			function filterLayers(visibleLayers) {}
+			function layerFiltered(layer) {}
+			
+			//renderFilter(visibleLayers,["ODU","OUT","Physical","OMS","OTS","OCH"]);----------------<<<<<<<<<<<<<<<<<
+			function renderFilter(visibleLayers,allLayers) {
+				/*html = "";
+				for (var j = 0; j < allLayers.length; j++) {
+					//create it and dont show it
+					//check to see if it is visible
+					for (var i = 0; i < allLayers.length; i++) {
+						
+					}
+				}*/
+				/*
+				<div id="checkbox2" 
+                        dojoType="xwt.widget.form.CheckBoxGroup" 
+                        title="CheckBoxes-vertical :" 
+                        checkBoxes="{items:[{name:'chk1',value:'Check Box One ', label:'Check Box One'},{name:'chk2',value:'Check Box Two',label:'Check Box Two'},{name:'chk3',value:'Check Box Three' , label:'Check Box Three'},{name:'chk4',value:'Check Box Four', label:'Check Box Four'},{name:'chk5',value:'Check Box Five', label:'Check Box Five'},{name:'chk6',value:'Check Box Six',label:'Check Box Six'},{name:'chk7',value:'Check Box Seven', label:'Check Box Seven' }]}" 
+                        layout="vertical" 
+                        layoutSize="3">
+                    </div>
+				*/
+				
+				//document.getElementById("menu").innerHTML = html;
+			}
+			
+			function getNode(nodeId,label) { //Check to see if node exists. If it does return it. If it doesn't then create it and return it.
+				for (var n = 0; n < go.nodes.length; n++) {
+					if (go.nodes[n].id == nodeId) { 
+						return go.nodes[n];
+					}
+				}
+				var node = {
+					"id" : nodeId,
+					"obj" : null,
+					"label" : label,
+					"ports" : [],
+					"slots" : []
+				};
+				go.nodes.push(node);
+				return node;
+			}
+			
+			function getContainer(children,color) {
+				var margin = 15;
+				var xLow,xHigh,yLow,yHigh,zLow,zHigh;
+				for (var c = 0; c < children.length; c++) {
+					if (c == 0) {
+						xLow = children[c].position.x;
+						xHigh = children[c].position.x;
+						yLow = children[c].position.y;
+						yHigh = children[c].position.y;
+						zLow = children[c].position.z;
+						zHigh = children[c].position.z;
+					} else {
+						if (children[c].position.x < xLow ) { xLow = children[c].position.x; }
+						if (children[c].position.x > xHigh ) { xHigh = children[c].position.x; }
+						if (children[c].position.y < yLow ) { yLow = children[c].position.y; }
+						if (children[c].position.y > yHigh ) { yHigh = children[c].position.y; }
+						if (children[c].position.z < zLow ) { zLow = children[c].position.z; }
+						if (children[c].position.z > zHigh ) { zHigh = children[c].position.z; }
+					}
+				}
+
+				var cubeGeometry = new THREE.CubeGeometry( xHigh - xLow+(margin*2), yHigh - yLow +(margin*2), zHigh - zLow+(margin*2), 2, 2, 2 );
+				var container = new THREE.Mesh( 
+				cubeGeometry.clone(), new THREE.MeshLambertMaterial({color: 0xEEEEEE, side:THREE.BackSide, transparent: false, opacity: 1, emissive: 0xEEEEEE }) );
+				container.position.set(xLow,yLow+margin*2+margin/2,zLow);
+				//container.name = label;
+				//add a badge too
+				scene.add( container );
+				objects.push( container );
+				containers.push( container );
+			}
+
+			function getBadge(layer,node,port,badge) {
+				console.log("creating badge");
+				var geometry = new THREE.CubeGeometry( 10, 10, 0);
+				var material = new THREE.MeshPhongMaterial({ map: THREE.ImageUtils.loadTexture('assets/badges/'+badge+'.png'),alphaTest: 0.5,emissive:0xFFFFFF}); 				
+				var badgeMesh = new THREE.Mesh( geometry, material );
+				var EloObj = getSubElo(layer, port);
+    			badgeMesh.position.y = EloObj.z+11;
+				badgeMesh.position.x = EloObj.x+2;
+				badgeMesh.position.z = EloObj.y+12;
+				if (badge == "Alert_critical_16") {
+					console.log("animating critical badge");
+					var target = { x : badgeMesh.scale.x+1, y: badgeMesh.scale.y+1, z: badgeMesh.scale.z };
+					var tween = new TWEEN.Tween(badgeMesh.scale).to(target, 1000).yoyo( true );
+					tween.repeat( Infinity );
+					tween.easing(TWEEN.Easing.Cubic.InOut);
+					tween.start();
+				}
+				scene.add(badgeMesh);
+				objects.push( badgeMesh );
+				return badgeMesh;
+			}
+			
+			function getIcon(node,icon) {
+				console.log("creating icon");
+				var geometry = new THREE.CubeGeometry( 100, 100, 100);
+				var material = new THREE.MeshPhongMaterial({ map: THREE.ImageUtils.loadTexture('assets/icons/'+icon+'.png'),alphaTest: 0.5,emissive:0xFFFFFF}); 				
+				var iconMesh = new THREE.Mesh( geometry, material );
+				var EloObj = node;
+    			iconMesh.position.y = EloObj.z;
+				iconMesh.position.x = EloObj.x;
+				iconMesh.position.z = EloObj.y+layerStep/2;
+				return iconMesh;
+			}
+			
+			function getSphere(radius, widthSegments, heightSegments, px, py, pz,color,opacity,id) {
+				console.log("creating sphere");
+     		    var geometry = new THREE.SphereGeometry(radius, widthSegments, heightSegments);
+     		    sphere = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({shading:THREE.NoShading, color: color, side:THREE.FrontSide,transparent: false, opacity: opacity, ambient: color,emissive:color }));
+    		    sphere.position.x = px;
+     		    sphere.position.y = py;
+     		    sphere.position.z = pz;
+     		    sphere.id = id;
+     		    objects.push( sphere );
+     		   	ports.push( sphere );
+     		    scene.add(sphere);
+     		    return sphere;
+  		  	}
+			
+			function getSpriteLabel(text,x,y,z,size,color) {
+				console.log("creating sprite label");
+				var spriteLabel = makeTextSprite( text,{ fontsize: size, textColor:{r:0, g:0, b:70, a:0.7}, borderColor: {r:0, g:0, b:0, a:0.0}, backgroundColor: {r:0, g:255, b:255, a:0.0} } );
+				spriteLabel.position.set(x,y,z);
+				scene.add(spriteLabel);
+				objects.push(spriteLabel);
+			}
+
+			function getLine(element,layer,count,label,y,start,end,style,color) {
+				var startLocationObj = getElo(layer,start);
+				var endLocationObj = getElo(layer,end);
+				if (style == "dashed") {
+					console.log("creating dashed line");
+					getLineDashed(startLocationObj.x, y+4+(getPrevNoLns(layer,element,start,end)*2), startLocationObj.y, endLocationObj.x, y+4+(getPrevNoLns(layer,element,start,end)*2),  endLocationObj.y, gd.linelabelcolor, "red");
+				} else {
+					console.log("creating solid line x"+startLocationObj.x+" endLocationObj.x "+endLocationObj.x);
+					getLineBasic(startLocationObj.x, y+4+(getPrevNoLns(layer,element,start,end)*2), startLocationObj.y, endLocationObj.x, y+4+(getPrevNoLns(layer,element,start,end)*2),  endLocationObj.y, gd.linelabelcolor, "red");
+				}
+			}
+			
+			function getLinkLine(layer, port1, port2 ,label, id, color, startloss, endloss, badge, style, linkNumber) {
+				console.log("creating link "+label);
+				var sLoPosTemp = getSubElo(layer,port1);
+				var eLoPosTemp = getSubElo(layer,port2);
+				var sLoPos;
+				var eLoPos;
+				var cLk;
+				//Make sure first port object is on left
+				if(sLoPosTemp.x < eLoPosTemp.x) {
+					sLoPos = sLoPosTemp;
+					eLoPos = eLoPosTemp;
+				} else {
+					sLoPos = eLoPosTemp;
+					eLoPos = sLoPosTemp;
+				}
+				if (style == "dashed") {
+					cLk = getLinkDashed(
+						sLoPos.x, 
+						sLoPos.z+11, 
+						sLoPos.y, 
+						eLoPos.x, 
+						eLoPos.z+11, 
+						eLoPos.y, 
+						color, 
+						linkNumber);//instead of 11 divide bounding box of port by 2 in order for this to work for any object
+				} else {
+					cLk = getLinkBasic(
+						sLoPos.x, 
+						sLoPos.z+11, 
+						sLoPos.y, 
+						eLoPos.x, 
+						eLoPos.z+11,  
+						eLoPos.y, 
+						color, 
+						linkNumber);//instead of 11 divide bounding box of port by 2 in order for this to work for any object
+				}
+				getOlb(label, cLk, gd.linklabelcolor, 5, yStep*(linkNumber-1)+yStep/2+3, "center", "top", 0xFFFFFF);
+				getOlb(startloss, cLk, gd.losslabelcolor, 4, yStep*(linkNumber-1)+yStep/2, "right", "leftloss", 0xFFFFFF);
+				getOlb(endloss, cLk, gd.losslabelcolor, 4, yStep*(linkNumber-1)+yStep/2, "right", "rightloss", 0xFFFFFF);
+				//go.layers[getLayerIndexById(startlayer.id)].lines.push(cLn);
+				//go.layers[getLayerIndexById(endlayer.id)].lines.push(cLn);
+				
+				
+				//Link Badge
+				var geometry = new THREE.CubeGeometry( 10, 10, 0);
+				var material = new THREE.MeshPhongMaterial({ map: THREE.ImageUtils.loadTexture('assets/badges/'+badge+'.png'),alphaTest: 0.5,emissive:0xFFFFFF}); 				
+				var badgeMesh = new THREE.Mesh( geometry, material );
+				var EloObj = cLk.position;
+    			badgeMesh.position.y = EloObj.y + yStep*(linkNumber-1)+yStep;
+				badgeMesh.position.x = EloObj.x-45;
+				badgeMesh.position.z = EloObj.z+3;
+				if (badge == "Alert_critical_16") {
+					console.log("animating critical badge");
+					var target = { x : badgeMesh.scale.x+1, y: badgeMesh.scale.y+1, z: badgeMesh.scale.z };
+					var tween = new TWEEN.Tween(badgeMesh.scale).to(target, 1000).yoyo( true );
+					tween.repeat( Infinity );
+					tween.easing(TWEEN.Easing.Cubic.InOut);
+					tween.start();
+				}
+				scene.add(badgeMesh);
+				objects.push( badgeMesh );
+				links.push(cLk);
+				return cLk;
+			}
+			
+			function getSubLine(subElement, element, layer, count, label, y ,start, end ,style, color, badge) {
+				var startLocationObj = getPlo(start);
+				var endLocationObj = getPlo(end);
+				var cLn;
+				if (style == "dashed") {
+					console.log("creating sub dashed line");
+					cLn = getLineDashed(
+						startLocationObj.x, 
+						startLocationObj.z+11+(getPrevNoLns(layer, element, start, end) * 2), 
+						startLocationObj.y, 
+						endLocationObj.x, 
+						endLocationObj.z+11+(getPrevNoLns(layer, element, start, end) * 2),  
+						endLocationObj.y, 
+						color);
+				} else {
+					console.log("creating sub solid line z:"+startLocationObj.z);
+					cLn = getLineBasic(
+						startLocationObj.x, 
+						startLocationObj.y, 
+						startLocationObj.z + (getPrevNoLns(layer, element, start, end) * 2), 
+						endLocationObj.x, 
+						endLocationObj.y,  
+						endLocationObj.z + (getPrevNoLns(layer, element, start, end) * 2), 
+						color);
+				}
+				
+				//Link Badge
+				if (badge) {
+					var geometry = new THREE.CubeGeometry( 10, 10, 0);
+					var material = new THREE.MeshPhongMaterial({ map: THREE.ImageUtils.loadTexture('assets/badges/'+badge+'.png'),alphaTest: 0.5,emissive:0xFFFFFF}); 				
+					var badgeMesh = new THREE.Mesh( geometry, material );
+					var EloObj = cLn.position;
+    				badgeMesh.position.y = EloObj.y;
+					badgeMesh.position.x = EloObj.x;
+					badgeMesh.position.z = EloObj.z + 3;
+					scene.add(badgeMesh);
+					objects.push(badgeMesh);
+				}
+								
+				lines.push(cLn);
+				return cLn;
+			}
+			
+			function getPrevNoLns(layerId,elementId,start,end) {
+				var count = 0;
+				for (var i = 0; i < gd.layers.length; i++) {
+					if (arrayContains(gd.layers[i].id, visibleLayers)) {
+						if (gd.layers[i].id == layerId) {
+							for (var n = 0; n < gd.layers[i].elements.length; n++) {
+								if (gd.layers[i].elements[n].id != elementId && ((gd.layers[i].elements[n].start == start && gd.layers[i].elements[n].end == end) || (gd.layers[i].elements[n].start == end && gd.layers[i].elements[n].end == start)) ) {
+									count++;
+								} else {
+									break;
+								}
+							}
+						}
+					}
+				}
+				console.log("returning previous number of lines as "+count);
+				return count;
+			}
+			
+			function getLrYbyId(layerid) {
+				console.log("Getting layer elevation byId "+layerid);
+				for (var i = 0; i < go.layers.length; i++) {
+					if (arrayContains(go.layers[i].id, visibleLayers)) {
+						console.log("Checking layer " + go.layers[i] + " id " + go.layers[i].id);
+						if (go.layers[i].id == layerid) {
+							return go.layers[i].height;
+						}
+					} else {
+						return 0;
+					}
+				}
+			}
+			
+			function getElo(layerId,elementId) {
+				var obj = new Object();
+				for (var i = 0; i < gd.layers.length; i++) {
+					if (gd.layers[i].id == layerId) {
+						if (arrayContains(layers[i].id, visibleLayers)) {
+							for (var n = 0; n < gd.layers[i].elements.length; n++) {
+								if (gd.layers[i].elements[n].id == elementId) {
+									obj.x = parseInt(gd.layers[i].elements[n].x);
+									obj.y = parseInt(gd.layers[i].elements[n].y);
+									return obj;
+								}
+							}
+						}
+					}
+				}
+			}
+			
+			function getSubElo(layerId, subElementId) {
+				var obj = new Object();
+				for (var i = 0; i < gd.layers.length; i++) {
+					if('elements' in gd.layers[i]) {
+						for (var n = 0; n < gd.layers[i].elements.length; n++) {
+							if('elements' in gd.layers[i].elements[n]) {
+								for (var j = 0; j < gd.layers[i].elements[n].elements.length; j++) {
+									if (gd.layers[i].elements[n].elements[j].id == subElementId) {
+										obj.x = parseInt(gd.layers[i].elements[n].elements[j].x);
+										obj.y = parseInt(gd.layers[i].elements[n].elements[j].y);
+										obj.z = getLrYbyId(layerId);
+										//console.log("Returning Object on layer:" + gd.layers[i].id + " in element:" + gd.layers[i].elements[n].id + " x:" + obj.x + " y:" + obj.y + " z:" + obj.z);
+										return obj;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			
+			function getPlo(id) {
+				for (var i = 0; i < ports.length; i++) {
+					if (ports[i].data.id == id) {
+						return ports[i].position;
+					}
+				}
+			}
+			
+			function getBox(height,width,depth,x, y, z,texture, color) {
+				console.log("creating box");
+				var geometry = new THREE.CubeGeometry( height, width, depth);
+				var material = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('assets/'+texture+'.jpg') } );   				
+				var mesh1 = new THREE.Mesh(geometry, material );
+    			mesh1.position.y = y+4+(width/2);
+				mesh1.position.x = x;
+				mesh1.position.z = z;
+				mesh1.castShadow = true;
+				scene.add( mesh1 );
+				objects.push(mesh1);
+			}
+
+			function getLinkBasic(x1, y1, z1, x2, y2, z2, color1, linkNumber) {
+				console.log("Drawing basic link "+x1+" to "+x2);
+				var xCorner = 20;
+				var yCorner = 20;
+   		     	var geometry = new THREE.Geometry();
+   		    	geometry.vertices.push(new THREE.Vector3(x1,y1,z1));
+   		    	geometry.vertices.push(new THREE.Vector3(x1+xCorner,y1+(linkNumber*yStep),z1));//add +yCorner to  bump first link up
+   		    	geometry.vertices.push(new THREE.Vector3(x2-xCorner,y2+(linkNumber*yStep),z2));//add +yCorner to  bump first link up
+   		    	geometry.vertices.push(new THREE.Vector3(x2,y2,z2)); 
+   		     	geometry.colors.push(new THREE.Color(color1));
+   		     	geometry.applyMatrix( new THREE.Matrix4().makeTranslation( -1*((x2+x1)/2), -1*((y2+y1)/2), -1*((z2+z1)/2)));
+  		     	var lineBasicMaterial = new THREE.LineBasicMaterial({
+     			  color: color1,
+     			  emissive:color1,
+     			  ambient: color1,
+     			  specularMap:0,
+      			  shading: THREE.FlatShading
+   				  });
+   				
+  		     	var material = new THREE.LineBasicMaterial({
+					linewidth: 6,
+					vertexColors: THREE.VertexColors,
+					opacity: 1
+  		      		});
+  		      	var line = new THREE.Line(geometry, lineBasicMaterial);
+  		      	line.position.y = (y1+y2)/2;
+				line.position.x = (x1+x2)/2;
+				line.position.z = (z1+z2)/2;
+    		    scene.add(line);
+    		    objects.push(line);
+    		    links.push(line);
+    		    return line;
+    		}
+    		
+			function getLinkDashed(x1, y1, z1, x2, y2, z2, color1,linkNumber) {
+				console.log("Drawing basic link "+x1+" to "+x2);
+				var xCorner = 20;
+				var yCorner = 20;
+   		     	var geometry = new THREE.Geometry();
+   		    	geometry.vertices.push(new THREE.Vector3(x1,y1,z1));
+   		    	geometry.vertices.push(new THREE.Vector3(x1+xCorner,y1+(linkNumber*yStep),z1));//remove +yCorner to not bump first link up
+   		    	geometry.vertices.push(new THREE.Vector3(x2-xCorner,y2+(linkNumber*yStep),z2));//remove +yCorner to not bump first link up
+   		    	geometry.vertices.push(new THREE.Vector3(x2,y2,z2));
+   		     	geometry.colors.push(new THREE.Color(color1));
+   		     	geometry.applyMatrix( new THREE.Matrix4().makeTranslation( -1*((x2+x1)/2), -1*((y2+y1)/2), -1*((z2+z1)/2)));
+  		     	geometry.computeLineDistances();
+				 var material = new THREE.LineDashedMaterial({
+  			      	 color: color1,
+   			         linewidth: 1,
+   			         dashSize: 5,
+   			         gapSize: 3,
+   			         vertexColors: false
+   			     });
+   			     var line = new THREE.Line(geometry, material, THREE.LineStrip);
+  		      	line.position.y = (y1+y2)/2;
+				line.position.x = (x1+x2)/2;
+				line.position.z = (z1+z2)/2;
+    		    scene.add(line);
+    		    objects.push(line);
+    		    links.push(line);
+    		    return line;
+    		}
+    		
+    		function getLineBasic(x1, y1, z1, x2, y2, z2, color1, color2) {
+   		     	var geometry = new THREE.Geometry();
+   		    	geometry.vertices.push(new THREE.Vector3(x1,y1,z1));
+   		    	geometry.vertices.push(new THREE.Vector3(x2,y2,z2));
+   		     	geometry.colors.push(new THREE.Color(color1));
+   		     	geometry.applyMatrix( new THREE.Matrix4().makeTranslation( -1*((x2+x1)/2), -1*((y2+y1)/2), -1*((z2+z1)/2)));
+  		     	//geometry.colors.push(new THREE.Color(color2));
+  		     	var lineBasicMaterial = new THREE.LineBasicMaterial({
+     			  color: color1,
+     			  emissive:color1,
+     			  ambient: color1,
+     			  specularMap:0,
+      			  shading: THREE.FlatShading
+   				 });
+  		     	//lineBasicMaterial.color.setRGB( Math.random(), Math.random(), Math.random());
+   				
+  		     	var material = new THREE.LineBasicMaterial({
+				linewidth: 1,
+				vertexColors: THREE.VertexColors,
+				opacity: 1
+  		      	});
+  		      	var line = new THREE.Line(geometry, lineBasicMaterial);
+  		      	line.position.y = (y1+y2)/2;
+				line.position.x = (x1+x2)/2;
+				line.position.z = (z1+z2)/2;
+    		    scene.add(line);
+    		    objects.push(line);
+    		    lines.push(line);
+    		    return line;
+    		}
+    		
+  			  function getLineDashed(x1, y1, z1, x2, y2, z2, color1, color2) {
+       			 var geometry = new THREE.Geometry();
+     			 geometry.vertices.push(new THREE.Vector3(x1, y1, z1));
+     			 geometry.vertices.push(new THREE.Vector3(x2, y2, z2));
+ 			     geometry.colors.push(new THREE.Color(color1));
+ 			     geometry.colors.push(new THREE.Color(color2));
+ 			     geometry.applyMatrix( new THREE.Matrix4().makeTranslation( -1*((x2+x1)/2), -1*((y2+y1)/2), -1*((z2+z1)/2)));
+				 geometry.computeLineDistances();
+				 var material = new THREE.LineDashedMaterial({
+  			      	 color: color1,
+   			         linewidth: 3,
+   			         dashSize: 5,
+   			         gapSize: 3,
+   			         vertexColors: false
+   			     });
+   			     var line = new THREE.Line(geometry, material, THREE.LineStrip);
+   			     line.position.y = (y1+y2)/2;
+				 line.position.x = (x1+x2)/2;
+				 line.position.z = (z1+z2)/2;
+   			     scene.add(line);
+   			  	 objects.push(line);
+   				 lines.push(line);
+   				 return line;
+			   }
+			
+			function getModel(name,x, y, z, color, opacity) {
+				console.log("creating model");
+				loader = new THREE.JSONLoader();	
+				var geometry;
+					loader.load( "assets/"+name+".js", function( geometry ) {
+						mesh1 = new THREE.Mesh( geometry, new THREE.MeshLambertMaterial({color: color, side:THREE.FrontSide,transparent: true, opacity: opacity, shading: THREE.NoShading,emissive:color }));
+						mesh1.scale.set( 30, 30, 30 );
+						mesh1.position.y = y + 4;
+						mesh1.position.x = x;
+						mesh1.position.z = z;
+						mesh1.castShadow = true;
+						scene.add( mesh1 );
+						objects.push(mesh1);
+					});
+					return mesh1;
+			}
+			
+			function getCylinder(name,x, y, z, color, opacity, height) {
+				console.log("creating cylinder with height "+height);
+				//var cylinder = new THREE.Mesh(new THREE.CylinderGeometry(54, 54, height, 50, 50, true), new THREE.MeshLambertMaterial({ side:THREE.BackSide,color: color,transparent: true, opacity: opacity, shading: THREE.NoShading,emissive:color  }));
+				var cylinder = new THREE.Mesh(new THREE.CylinderGeometry(54, 54, height, 50, 50, true), new THREE.MeshLambertMaterial({ side:THREE.FrontSide,color: color,transparent:true, opacity: .5,  emissive:color, shading: THREE.SmoothShading,blending:THREE.MultiplyBlending,colors:THREE.VertexColors}));
+				var cylinderBack = new THREE.Mesh(new THREE.CylinderGeometry(54, 54, height, 50, 50, true), new THREE.MeshLambertMaterial({ side:THREE.BackSide,color: color,transparent:true, opacity: 1,  emissive:color, shading: THREE.SmoothShading,blending:THREE.NormalBlending,colors:THREE.VertexColors}));
+      			//new THREE.Mesh(new THREE.CylinderGeometry(100, 100, 400, 50, 50, false), new THREE.MeshNormalMaterial());
+      			
+      			cylinder.position.y = y + (height/2)-10 -15;
+				cylinder.position.x = x;
+				cylinder.position.z = z;
+      			//cylinder.overdraw = true;
+      			cylinder.material.opacity = 0.01;
+     			scene.add(cylinder);
+     			
+     			/////////
+     			cylinderBack.position.y = y + (height/2)-10 - 15;
+				cylinderBack.position.x = x;
+				cylinderBack.position.z = z;
+      			//cylinder.overdraw = true;
+      			cylinderBack.material.opacity = 0.3;
+     			scene.add(cylinderBack);
+     			////////
+     			
+     			objects.push(cylinder);
+				return cylinder;
+			}
+
+			function getOlb(label,object,color,size,margin,align,placement,bgcolor) {
+       			  if (!color) {
+      			      color = 0x464646;
+      			  }
+      			  if (!size) {
+      			      size = 20;
+      			  }
+ 			      var text3d = new THREE.TextGeometry(label, {size: size, height: 2, curveSegments: 6, font: "helvetiker", opacity: 1});
+ 			      
+  			      var textMaterial = new THREE.MeshBasicMaterial({color: color, overdraw: true});
+   				  var text = new THREE.Mesh(text3d, textMaterial);
+    			  
+  			      var group = new THREE.Object3D();
+  			      
+  			      var boundingBox = text3d.computeBoundingBox();
+      			 
+      			  var textWidth = text3d.boundingBox.max.x - text3d.boundingBox.min.x;
+      			  var textHeight = text3d.boundingBox.max.y - text3d.boundingBox.min.y;
+      			  var objectBoundingBox = object.geometry.computeBoundingBox();
+  			      var objectWidth = object.geometry.boundingBox.max.x - object.geometry.boundingBox.min.x;
+      			  var objectHeight = object.geometry.boundingBox.max.y - object.geometry.boundingBox.min.y;
+  			      
+  			       var planeGeom =  new THREE.CubeGeometry(
+      			  			//text3d.boundingBox.max.x - text3d.boundingBox.min.x+(text3d.boundingBox.max.x - text3d.boundingBox.min.x)*.3,
+      			  			textWidth, text3d.boundingBox.max.y - text3d.boundingBox.min.y+(text3d.boundingBox.max.y - text3d.boundingBox.min.y)*.5,
+      			  			0,2,2,2);
+  			      if (placement == "top") {
+  			      	group.position.y = textHeight + margin;
+  			      } else if (placement == "bottom") {
+  			      	group.position.y = -1* textHeight - margin;
+  			      } else if (placement == "left") {
+  			      	group.position.x = -1 * textWidth - margin - objectWidth/2;
+  			      	group.position.y = -1 * textHeight/2;
+  			      } else if (placement == "right") {
+  			      	group.position.x = objectWidth/2 + margin;
+  			      	group.position.y = -1 * textHeight/2;
+  			      } else if (placement == "rightloss") {
+  			      	group.position.x = objectWidth/2 -  textWidth - 22;//20 is xCorner on link
+  			      	group.position.y = textHeight + margin;
+  			      } else if (placement == "leftloss") {
+  			      	group.position.x = 22 - objectWidth/2 ;//xCorner on link
+  			      	group.position.y = textHeight + margin;
+  			      } else if (placement == "middle") {
+  			      	//do nothing
+  			      }
+
+  			      text.position.z = 4;
+  			      group.add(text);
+  			      object.add(group);
+  			      
+  			      if (align == "center") {
+  			      	group.position.x -= text3d.boundingBox.max.x/2;
+  			      }
+  			      
+  			      
+  			      if (bgcolor) {
+  			      		//var curvedBack = new THREE.Mesh();
+  			      		var curvedGeomLeft = makeRoundedCornerPlane(textHeight*1.7, 2 ,16);
+  			      		//alert(text3d.boundingBox.max.y - text3d.boundingBox.min.y+(text3d.boundingBox.max.y - text3d.boundingBox.min.y)*.5);
+						var curvedGeomRight = curvedGeomLeft;
+      			  		var material = new THREE.MeshBasicMaterial({shading:THREE.NoShading, color: bgcolor, side:THREE.FrontSide,transparent: false, opacity: 1.0, ambient: bgcolor,emissive:bgcolor });
+						
+						//move geometry 
+						var matrixLeft = new THREE.Matrix4();
+    					matrixLeft.makeTranslation(-1*textWidth/2, 0, 0);
+    					var matrixRight = new THREE.Matrix4();
+    					matrixRight.makeTranslation(textWidth/2, 0, 0);
+    					
+						//combine geometries
+						planeGeom.merge(curvedGeomLeft,matrixLeft);
+						planeGeom.merge(curvedGeomRight,matrixRight);
+						
+						var bglayer = new THREE.Mesh( planeGeom, material );
+						//var bglayer = new THREE.Mesh( curvedGeom, material );
+						//var bglayer = new THREE.Mesh( boundingBox, material );
+						bglayer.position.set(text3d.boundingBox.max.x/2, text3d.boundingBox.max.y/2,1 );
+						//group.add(bglayer);
+						group.add(bglayer);
+						labels.push(bglayer);
+      			  }
+      			  
+  			      objects.push(group);
+  			      labels.push(group);
+  			      
+  			      return group;
+    		}
+    		
+			function getLabel(label, x, y, z, color, size,xr,yr,zr,align,bgcolor) {
+			/// background color.....draw the letters....create plane same size as letters and add to label mesh
+       			  if (!color) {
+      			      color = 0xFFFFFF;
+      			  }
+      			  if (!size) {
+      			      size = 20;
+      			  }
+      			  if (!xr) {
+      			      xr = 0;
+      			  }
+      			  if (!yr) {
+      			      yr = 0; 
+      			  }
+      			  if (!zr) { 
+      			      zr = 0;
+      			  }
+ 			      var text3d = new THREE.TextGeometry(label, {size: size, height: 1, curveSegments: 7, font: "helvetiker", opacity: 0.5});
+  			      var textMaterial = new THREE.MeshBasicMaterial({color: color, overdraw: true});
+   				  var text = new THREE.Mesh(text3d, textMaterial);
+    			  
+  			      var group = new THREE.Object3D();
+  			      group.position.x = x;
+  			      group.position.y = y;
+  			      group.position.z = z;
+  			      group.add(text);
+  			      group.rotation.x = xr;
+  			      group.rotation.y = yr;
+  			      group.rotation.z = zr;
+  			      
+  			      var boundingBox = text3d.computeBoundingBox();
+      			  var planeGeom = new THREE.CubeGeometry(
+      			  			text3d.boundingBox.max.x - text3d.boundingBox.min.x+(text3d.boundingBox.max.x - text3d.boundingBox.min.x)*.3,
+      			  			text3d.boundingBox.max.y - text3d.boundingBox.min.y+(text3d.boundingBox.max.y - text3d.boundingBox.min.y)*.5,
+      			  			0);
+  			      
+  			      scene.add(group);
+  			      
+  			      if (align=="center") {
+  			      	group.position.x -=text3d.boundingBox.max.x/2;
+  			      }
+  			      
+  			      if (bgcolor) {
+      			  		var material = new THREE.MeshBasicMaterial({ color: bgcolor, transparent: true, opacity: 1.0 });
+						var bglayer = new THREE.Mesh( planeGeom, material );
+						//var bglayer = new THREE.Mesh( boundingBox, material );
+						bglayer.position.set(text3d.boundingBox.max.x/2, text3d.boundingBox.max.y/2,0 );
+						//group.add(bglayer);
+						group.add(bglayer);
+						labels.push(bglayer);
+      			  }
+      			  
+  			      objects.push(group);
+  			      labels.push(group);
+    		}
+    		
+    		function makeRoundedCornerPlane(offset, radius, smooth) {
+			    var geometry = new THREE.Geometry();
+
+  			    offset = (offset - radius) / 2;
+    			radius = radius / 4;
+    			//smooth = 16;
+
+    			var cornerA = new THREE.CircleGeometry(radius, smooth, (Math.PI * 2 / 4) * 1, Math.PI * 2 / 4);
+    			var matrixA = new THREE.Matrix4();
+    			matrixA.makeTranslation(0-offset, 0+offset, 0);
+    			geometry.merge(cornerA, matrixA);
+
+    			var cornerB = new THREE.CircleGeometry(radius, smooth, (Math.PI * 2 / 4) * 0, Math.PI * 2 / 4);
+    			var matrixB = new THREE.Matrix4();
+    			matrixB.makeTranslation(0+offset, 0+offset, 0);
+    			geometry.merge(cornerB, matrixB);
+
+    			var cornerC = new THREE.CircleGeometry(radius, smooth, (Math.PI * 2 / 4) * 3, Math.PI * 2 / 4);
+    			var matrixC = new THREE.Matrix4();
+    			matrixC.makeTranslation(0+offset, 0-offset, 0);
+    			geometry.merge(cornerC, matrixC);
+
+    			var cornerD = new THREE.CircleGeometry(radius, smooth, (Math.PI * 2 / 4) * 2, Math.PI * 2 / 4);
+    			var matrixD = new THREE.Matrix4();
+    			matrixD.makeTranslation(0-offset, 0-offset, 0);
+    			geometry.merge(cornerD, matrixD);
+
+    			var planeA = new THREE.PlaneGeometry((offset+radius) * 2, offset * 2);
+    			geometry.merge(planeA);
+
+    			var planeB = new THREE.PlaneGeometry(offset * 2, (offset+radius) * 2);
+    			geometry.merge(planeB);
+
+    			return geometry;
+   		    }
+
+			function init() {
+				console.log('initializing');
+				container = document.getElementById("threeDContainer");
+				console.log('container '+container);
+				
+				//create3DToolBar(container); dojo
+                
+                //var dnBtn1 = new dijit.form.DropDownButton({ label: "hi", dropDown: new dijit.Menu() });
+            
+				//container = document.getElementById('3dContainer');				
+				
+				//camera = new THREE.PerspectiveCamera( 80, window.innerWidth / window.innerHeight, 1, 10000 );
+				//camera.position.y = 900;
+				//camera = new THREE.PerspectiveCamera( 15, window.innerWidth / window.innerHeight, 1, 1000000 );
+				camera = new THREE.PerspectiveCamera( 4, window.innerWidth / window.innerHeight, 1, 100000 );
+				//camera = new THREE.OrthographicCamera( window.innerWidth / - 1+100, window.innerWidth / 1+100, window.innerHeight / 1, window.innerHeight / - 1, 300, 30000 );
+				//camera = new THREE.OrthographicCamera( window.innerWidth / - 2.5, window.innerWidth / 2.5, window.innerHeight / 2.5, window.innerHeight / - 2.5, 1, 10000 );
+				//camera.position.set (750, 850, 2600);
+				camera.position.set (1000, 300, 7000); //perspective camera
+				//camera.position.set (0, 400, 3000); //orth
+				camera.updateProjectionMatrix();
+				controls = new THREE.OrbitControls( camera );
+
+				scene = new THREE.Scene();
+				//scene.rotation.x = 12;
+
+				var size = 500, step = 50;
+
+				var geometry = new THREE.Geometry();
+
+				for ( var i = - size; i <= size; i += step ) {
+					geometry.vertices.push( new THREE.Vector3( - size, 0, i ) );
+					geometry.vertices.push( new THREE.Vector3(   size, 0, i ) );
+					geometry.vertices.push( new THREE.Vector3( i, 0, - size ) );
+					geometry.vertices.push( new THREE.Vector3( i, 0,   size ) );
+				}
+
+				var material = new THREE.LineBasicMaterial( { color: 0xb0b0b0, opacity: 0.5, transparent: true } );
+
+				var line = new THREE.Line( geometry, material );
+				line.type = THREE.LinePieces;
+				//scene.add( line );
+				scene.add( new THREE.AmbientLight( 0x000000) );		
+				//var light = new THREE.DirectionalLight(0xffffff, 2);
+				//light.position.set(-80, 220, 20);
+				//scene.add(light);
+				projector = new THREE.Projector();
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setClearColor( 0xffffff );
+				renderer.setSize( window.innerWidth-50, window.innerHeight-180);
+
+				container.appendChild( renderer.domElement ); 
+				/* Code for Shadow */
+				renderer.shadowMapEnabled = false;
+				renderer.shadowMapSoft = false;
+				renderer.shadowCameraNear = 3;
+				renderer.shadowCameraFar = camera.far;
+				renderer.shadowCameraFov = 50;
+				renderer.shadowMapBias = 0.0039;
+				renderer.shadowMapDarkness = 0.2;
+				renderer.shadowMapWidth = 1024;
+				renderer.shadowMapHeight = 1024;
+				renderer.shadowMapCullFrontFaces = false;
+				renderer.render(scene, camera);
+				//light.castShadow = true;
+				/* end here */
+				console.log('renderer values set');
+				var canvases = document.getElementsByTagName("canvas");
+				canvases[0].addEventListener( 'mouseup', onDocumentMouseUp, false ); 
+				window.addEventListener( 'resize', onWindowResize, false ); 
+				onWindowResize();
+				scene.updateMatrixWorld();//?????
+				window.setInterval(TWEEN.update, 10);
+				console.log('Tween update period set');
+				/*var element = document.createElement( 'div' );
+				element.id = 'toolbardiv';
+				element.style.fontFamily = 'monospace';
+				element.style.fontSize = '13px';
+				element.style.fontWeight = 'normal';
+				element.style.textAlign = 'center';
+				element.style.background = '#ffffff';
+				element.style.color = '#F00';
+				element.style.padding = '1.5em';
+				element.style.position = 'absolute';
+				element.style.zIndex = '200';
+				element.style.margin = '5em auto 0';
+				//element.innerHTML = "dddddddddd<div id='toolbar'><font color='#FF0000'>hjkjhkjhkh</font></div>";*/
+				}
+
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+			
+			function animate() {
+				requestAnimationFrame( animate );
+				controls.update(); 
+				renderer.render( scene, camera );
+			}
+
+			function makeTextSprite( message, parameters ) {
+				if ( parameters === undefined ) parameters = {};
+	
+				var fontface = parameters.hasOwnProperty("fontface") ? 
+				parameters["fontface"] : "Arial";
+	
+				var fontsize = parameters.hasOwnProperty("fontsize") ? 
+				parameters["fontsize"] : 18;
+	
+				var borderThickness = parameters.hasOwnProperty("borderThickness") ? 
+				parameters["borderThickness"] : 4;
+	
+				var borderColor = parameters.hasOwnProperty("borderColor") ?
+				parameters["borderColor"] : { r:0, g:0, b:0, a:1.0 };
+	
+				var backgroundColor = parameters.hasOwnProperty("backgroundColor") ?
+				parameters["backgroundColor"] : { r:255, g:255, b:255, a:1.0 };
+		
+				var spriteAlignment = THREE.SpriteAlignment.topLeft;
+		
+				var canvas = document.createElement('canvas');
+				
+				//canvas.width = 2000;//*****
+				//canvas.height = 2000;
+				var context = canvas.getContext('2d');
+				context.font = "Bold " + fontsize + "px " + fontface;
+    
+				// get size data (height depends only on font size)
+				var metrics = context.measureText( message );
+				var textWidth = metrics.width;
+	
+				// background color
+				context.fillStyle   = "rgba(" + backgroundColor.r + "," + backgroundColor.g + ","
+								  + backgroundColor.b + "," + backgroundColor.a + ")";
+				// border color
+				context.strokeStyle = "rgba(" + borderColor.r + "," + borderColor.g + ","
+								  + borderColor.b + "," + borderColor.a + ")";
+
+				context.lineWidth = borderThickness;
+				roundRect(context, borderThickness/2, borderThickness/2, textWidth + borderThickness, fontsize * 1.4 + borderThickness, 6);
+				// 1.4 is extra height factor for text below baseline: g,j,p,q.
+	
+				// text color
+				context.fillStyle = "rgba(0, 0, 70, 0.7)";
+
+				context.fillText( message, borderThickness, fontsize + borderThickness);
+	
+				// canvas contents will be used for a texture
+				var texture = new THREE.Texture(canvas);
+				texture.needsUpdate = true;
+
+				var spriteMaterial = new THREE.SpriteMaterial({ map: texture, useScreenCoordinates: false } );
+				var sprite = new THREE.Sprite( spriteMaterial );
+				sprite.scale.set(100,50,1.0);
+				return sprite;
+	}
+ 
+function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+  if (typeof stroke == "undefined" ) {
+    stroke = true;
+  }
+  if (typeof radius === "undefined") {
+    radius = 5;
+  }
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+  if (stroke) {
+    ctx.stroke();
+  }
+  if (fill) {
+    ctx.fill();
+  }        
+}
+
+//CLICKABLE CODE
+
+	function getMousePos(canvas, evt) {
+   		var rect = canvas.getBoundingClientRect();
+   		return {
+    		x: evt.clientX - rect.left,
+    		y: evt.clientY - rect.top
+   		};
+	}
+	function onDocumentMouseUp( event ) {
+				event.preventDefault();
+				var pos = getMousePos(event.target, event);
+				//var vector = new THREE.Vector3( ( event.clientX / window.innerWidth ) * 2 - 1, - ( (event.clientY-107) / window.innerHeight ) * 2 + 1, 0.5 );
+				var vector = new THREE.Vector3( ( (pos.x) / window.innerWidth ) * 2 - 1, - ( (pos.y) / window.innerHeight ) * 2 + 1, 0.5 );
+				//projector.unprojectVector( vector, camera );
+
+				var raycaster = projector.pickingRay( vector, camera );
+
+				var intersects = raycaster.intersectObjects( ports,true );
+				console.log(camera.position);
+				// debugger;
+				if ( intersects.length > 0 ) {
+					console.log("clicked port with id:"+intersects[ 0 ].object.id);
+					//objectClick(intersects[ 0 ].object.id)
+					// the location is ....particle.position.copy( intersects[ 0 ].point );
+					
+					/*if (!view360) {
+                            view360 = create360View(intersects[ 0 ].object.id);
+                            view360.startup();
+                            var tmp = setTimeout(function() {
+                                var carousel = dijit.byId("barchart").domNode.parentNode;
+                                dojo.setStyle(carousel, "width", "210px");
+                                dijit.byId("barchart").containerNode.style.width = "208px";
+
+                                var carousel1 = dijit.byId("areachart").domNode.parentNode;
+                                dojo.setStyle(carousel1, "width", "210px");
+                                dijit.byId("areachart").containerNode.style.width = "208px";
+                            }, 300);
+                        }
+
+                    if (!view360.pinned) {
+                        if (view360.isShowingNow) {
+                            view360.hide();
+                        } else {
+                            view360.openAroundCoordinates(event.clientX,event.clientY);
+                        }
+                    }*/
+				}
+			}
+			
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+			// CREATE 360 BEGIN ##############################
+			function create360View(uniqueDeviceId) {
+                    var toolbarItems = [{
+        							actionId: 'button2',
+        							label: 'Go Home',        							
+        							iconClass: 'button4'
+        						}
+        					];
+        					var basePropValues = {
+        						width: 100,
+        						barWidth: 5,
+        						gapWidth: 2,
+        						datatipText: function(obj) {
+        							return "text - " + obj.index + " is " + obj.run.data[obj.index] + "<br/> Second tip line";
+        						}
+        					};
+        					var metricChartProps1 = {
+        						theme: xwt.widget.charting.themes.Reboot,
+        						showDatatip: true,
+        						baseProps: basePropValues
+        					};
+        					var metricChartProps2 = {
+        						theme: xwt.widget.charting.themes.Reboot,
+        						showDatatip: true
+        					};
+        					var rangeSelectorValues = [{
+        							range: "30s",
+        							text: "30 seconds"
+        						}, {
+        							range: "1m",
+        							text: "1 minute"
+        						}, {
+        							range: "1h",
+        							text: "1 hour"
+        						}, {
+        							range: "24h",
+        							text: "24 hours"
+        						}, {
+        							range: "1d",
+        							text: "1 day"
+        						}, {
+        							range: "30d",
+        							text: "30 days"
+        						}
+        					];
+        					var metricItems = [{
+        							viewClass: "xwt.widget.charting.metricChart.MetricChart",
+        							params: {
+        								metricChartType: "sparkline",
+        								metricChartProps: metricChartProps1,
+        								type: "bar",
+        								titleName: "CPU Utilization",
+        								rangeSelectorValues: rangeSelectorValues,
+        								dataUrl: "applications/d3/data/sparkline_data.jsp"
+        							}
+        						}, {
+        							viewClass: "xwt.widget.charting.metricChart.MetricChart",
+        							params: {
+        								metricChartType: "sparkline",
+        								metricChartProps: metricChartProps2,
+        								type: "area",
+        								titleName: "Memory Utilization",
+        								dataUrl: "applications/d3/data/sparkline_area_data.json"
+        							}
+        						}
+        					];
+        					var tabItems = [{
+        							title: 'Device',
+        							href: 'applications/d3/samples/grid_for_view_360.html'
+        						}, {
+        							title: 'Usage',
+        							href: 'applications/d3/samples/chart_for_view_360.jsp'
+        						}, {
+        							title: 'Add Device',
+        							href: 'applications/d3/samples/form_for_360_view.html'
+        						}, {
+        							title: 'Message',
+        							href: 'applications/d3/samples/staticText.html'
+        						}
+        					];
+        					var taskActions = [{
+        							label: 'Troubleshoot',
+        							baseClass: 'defaultButton'
+        						}, {
+        							label: 'Log Ticket'
+        						}, {
+        							label: 'Open TAC case'
+        						}
+        					];
+        					var basicInfoData = {
+        						identifier: 'deviceId',
+        						deviceId: 'uniqueDeviceId',
+        						basicInfo: {
+        							imageUrl: 'applications/page_view_360/images/placeholder_device.png',
+        							title: 'SJO-6500-E-1',
+        							status: 'online',
+        							iconClass: 'eSwitchIcon',
+        							identityTitle: '170.10.130.62/ 01:23:45:67:89:AB',
+        							identityType: 'Cisco MFT VWIC3',
+        							breadcrumb: [{
+        									iconClass: 'worldIcon',
+        									label: 'US',        									
+        									onClickParams: {
+        										id: 'SJO-6500-E-1'
+        									}
+        								}, {
+        									label: 'West'
+        								}, {
+        									iconClass: 'buildingIcon',
+        									label: 'SJ-O, 2nd Floor',        									
+        									onClickParams: {
+        										id: 'SJO-2-F-1122'
+        									}
+        								}
+        							],
+        							breadcrumbInfo: 'up for 32 days 17 hours 58 minutes 15 seconds',
+        							properties: [{
+        									key: 'OS Type',
+        									value: 'IOS',        									
+        									onClickParams: {
+        										id: 'IOS'
+        									}
+        								}, {
+        									key: 'OS Version',
+        									value: '12.2(33)SXI2a'
+        								}, {
+        									key: 'Last Config Change',
+        									value: 'Tuesday March 8, 2011, 10:31 AM PST'
+        								}, {
+        									key: 'Last Inventory Change',
+        									value: 'Tuesday March 8, 2011, 10:31 AM PST'
+        								}
+        							]
+        						}
+        					};
+        					var args = {
+        						title: '360 Network Device View',
+        						metricItems: metricItems,
+        						basicInfoData: basicInfoData,
+        						tabItems: tabItems,        						
+        						toolbarItems: toolbarItems,
+        						tabHeight: 210,
+        						view360Class: 'vizAdvView360',
+        						pinnable: true
+        					};
+        					var args = {
+        						title: '360 Network Device View',
+        						metricItems: metricItems,
+        						basicInfoData: basicInfoData,
+        						tabItems: tabItems,
+        						toolbarItems: toolbarItems,
+        						tabHeight: 210,
+        						pinnable: true,
+        						setValues: function(values, curCell, cellAttr, curItem, store) {
+        							this.set("title", values["Device Name"] + " > " + values["Site"]);
+        							basicInfoData.basicInfo.title = values["Device Name"];
+        						},
+        						view360Class: 'vizAdvView360'
+        					};
+                    return new xwt.widget.layout.View360(args);
+                }
+// CREATE NEW 360 END
+			
+			function animated() {
+				TWEEN.update();
+				console.log("updatex");
+			}
+			function arrayContains(needle, arrhaystack) {
+    			if (arrhaystack.indexOf(needle) > -1) { return true; } else { return false; }
+			}
+	
+		//animate();//********
+
+			console.log('starting data load');
+			http({
+				method  : 'POST',
+				url     : 'http://www.cameronstiffler.com/poc3D/data/data.php',
+				timeout : 30000,
+				
+				headers: { 
+		
+					"Content-Type": "application/x-www-form-urlencoded",
+
+        		}
+       		}).success(function(data) { 
+				console.log('data loaded');
+				console.log(data);
+				gd = data;
+				init();
+				buildGraph();
+			})
+		}])
+            
+			
+		</script>
+		<div id="threeDContainer" style="height: 1000px;"></div>
+	</body>
+</html>

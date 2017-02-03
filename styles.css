@@ -1,0 +1,101 @@
+.prime .carouselContainer {
+    position: relative;
+    height: 100%;
+    width: auto;
+    overflow: hidden;
+}
+            
+.prime #threeDContainer {
+      border: 1px solid #ccc;
+}
+
+.prime #threeDContainer .dijitToolbar {
+      padding: 5px;
+}
+.prime #threeDContainer .dijitToolbarSeparator {
+      border-left: 1px solid #ccc;
+	margin: 0 5px;
+}
+
+.prime #threeDContainer .searchBtn .dijitButtonText:before {
+      font-family: icon-font;
+	content: "\e05b";
+}
+.prime #threeDContainer .topologyBtn .dijitButtonText:before {
+      font-family: icon-font;
+	content: "\e101";
+}
+.prime .menubutton.printBtn .dijitButtonNode .dijitButtonText,
+.prime .menubutton.topologyBtn .dijitButtonNode .dijitButtonText,
+.prime .filterBtn .dijitButtonNode .dijitButtonText {
+      font-size: 1.6rem;
+      padding-top: 0.5rem;
+}
+.prime #threeDContainer .printBtn .dijitButtonText:before {
+      font-family: icon-font;
+	content: "\e0c5";				
+}
+.prime #threeDContainer .filterBtn .dijitButtonText:before {
+      font-family: icon-font;
+	content: "\e08c";
+}
+.prime #threeDContainer .filterBtn {
+      float: right;
+      font-size: 1.3rem;
+	line-height: 1.6rem;
+	vertical-align: middle;
+	border-radius: 0.3rem 0.3rem 0.3rem 0.3rem;
+}
+.prime #threeDContainer .filterBtn.dijitToggleButtonChecked {
+      color: #FFFFFF;
+	border: 0.1rem solid #323232;
+	background: #646464;
+	background: -webkit-gradient(linear, left top, left bottom, from(#323232), to(#646464));
+	background: -moz-linear-gradient(top,	#323232, #646464);
+	background: -ms-linear-gradient(top, #323232, #646464);
+	background: linear-gradient(to bottom,	#323232, #646464);
+} 
+.prime #threeDContainer .filterBtn.dijitToggleButtonCheckedHover .dijitButtonNode {            
+      color: #FFFFFF;
+}
+.prime #threeDContainer .plainBtn .dijitButtonNode {
+      border: 0;
+      background: none;
+      padding: 0.5rem;
+}
+.prime #threeDContainer .plainBtn .dijitArrowButtonInner {
+      padding-left: 0;
+}
+.prime #threeDContainer .plainBtn.menubutton.dijitActive .dijitButtonNode .dijitButtonText,
+.prime #threeDContainer .plainBtn.menubutton.dijitActive .dijitArrowButtonInner {
+      color:#000;
+}
+.prime #threeDContainer .plainBtn.menubutton.dijitActive .dijitArrowButtonInner:before{
+	color:#000;
+}
+.prime .showBtnPopover .xwtPopoverMenuBar {
+	display: none;
+}
+.prime .showBtnPopover .xwtPopoverContainer {
+	padding-top: 1.5rem;
+}
+.prime .showBtnPopover .dijitMenu {
+	border: 0;
+	box-shadow: none;
+}
+.prime .showBtnPopover .xwtVerticalSlider,
+.prime .showFilterPopover .xwtVerticalSlider  {
+	margin-top: 1.5rem;
+}
+.prime .showBtnPopover.xwtPopover .dijitTooltipContainer {
+	max-height: none;
+}
+.menuItemsContainer {
+	height: 320px;
+}
+.filterMenuItemsContainer {
+	height: 220px;
+}
+.routeBtn {
+	margin-left: 1rem;
+}
